@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { GripVertical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -37,6 +38,16 @@ export function Dashboard() {
     Record<string, 'sum' | null>
   >({})
   const [primaryHeaders, setPrimaryHeaders] = React.useState<string[]>([])
+  const [draggedPrimaryHeader, setDraggedPrimaryHeader] = React.useState<
+    string | null
+  >(null)
+  const [dragOverlayPosition, setDragOverlayPosition] = React.useState<{
+    x: number
+    y: number
+  } | null>(null)
+  const [dragOverPrimaryHeader, setDragOverPrimaryHeader] = React.useState<
+    string | null
+  >(null)
   const [error, setError] = React.useState<string | null>(null)
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
 
@@ -67,8 +78,8 @@ export function Dashboard() {
           return acc
         }, {})
       )
-    } catch (err) {
-      console.error('CSV upload failed', err)
+    } catch (_err) {
+      setError('CSV upload failed')
     } finally {
       e.target.value = ''
     }
@@ -114,6 +125,51 @@ export function Dashboard() {
     setVisible({})
     setAggregation({})
     setPrimaryHeaders([])
+    setDraggedPrimaryHeader(null)
+    setDragOverlayPosition(null)
+    setDragOverPrimaryHeader(null)
+  }
+
+  function reorderPrimaryHeaders(activeHeader: string, overHeader: string) {
+    if (activeHeader === overHeader) return
+
+    setPrimaryHeaders((prev) => {
+      const activeIndex = prev.indexOf(activeHeader)
+      const overIndex = prev.indexOf(overHeader)
+
+      if (activeIndex < 0 || overIndex < 0) return prev
+
+      const next = [...prev]
+      next.splice(activeIndex, 1)
+      next.splice(overIndex, 0, activeHeader)
+      return next
+    })
+  }
+
+  function handlePrimaryHeaderDragStart(header: string) {
+    setDraggedPrimaryHeader(header)
+  }
+
+  function handlePrimaryHeaderDragMove(
+    header: string,
+    event: React.DragEvent<HTMLDivElement>
+  ) {
+    if (draggedPrimaryHeader !== header) return
+    setDragOverlayPosition({ x: event.clientX, y: event.clientY })
+  }
+
+  function handlePrimaryHeaderDrop(overHeader: string) {
+    if (!draggedPrimaryHeader) return
+    reorderPrimaryHeaders(draggedPrimaryHeader, overHeader)
+    setDraggedPrimaryHeader(null)
+    setDragOverlayPosition(null)
+    setDragOverPrimaryHeader(null)
+  }
+
+  function handlePrimaryHeaderDragEnd() {
+    setDraggedPrimaryHeader(null)
+    setDragOverlayPosition(null)
+    setDragOverPrimaryHeader(null)
   }
 
   // Build header cards list: primaryHeaders (if visible) first, then up to 4 total.
@@ -136,7 +192,7 @@ export function Dashboard() {
     const s = String(value).trim()
     if (s === '') return null
     // remove currency symbols and spaces, keep digits, dots and minus
-    const cleaned = s.replace(/[^0-9.\-]+/g, '')
+    const cleaned = s.replace(/[^0-9.-]+/g, '')
     const n = Number(cleaned)
     return Number.isFinite(n) ? n : null
   }
@@ -168,6 +224,45 @@ export function Dashboard() {
 
       {/* ===== Main ===== */}
       <Main>
+        {draggedPrimaryHeader && dragOverlayPosition && (
+          <div
+            className='pointer-events-none fixed z-50 w-[min(20rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2'
+            style={{
+              left: dragOverlayPosition.x,
+              top: dragOverlayPosition.y,
+            }}
+          >
+            <Card className='border-primary/40 bg-background/95 shadow-2xl backdrop-blur-sm'>
+              <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+                <CardTitle className='flex items-center gap-1 text-sm font-medium'>
+                  <GripVertical className='h-4 w-4 shrink-0 text-muted-foreground' />
+                  <span>{draggedPrimaryHeader}</span>
+                </CardTitle>
+                <span className='text-xs text-muted-foreground'>Dragging</span>
+              </CardHeader>
+              <CardContent>
+                <div className='text-2xl font-bold'>
+                  {aggregation[draggedPrimaryHeader] === 'sum'
+                    ? (() => {
+                        const sum = computeSumForHeader(draggedPrimaryHeader)
+                        return sum !== null ? sum.toLocaleString() : '-'
+                      })()
+                    : String(data[0]?.[draggedPrimaryHeader] ?? '').slice(
+                        0,
+                        16
+                      ) || '-'}
+                </div>
+                <p className='text-xs text-muted-foreground'>
+                  {aggregation[draggedPrimaryHeader] === 'sum'
+                    ? 'Sum of column'
+                    : visible[draggedPrimaryHeader]
+                      ? 'Visible header'
+                      : 'Hidden header'}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
         <div className='mb-2 flex items-center justify-between space-y-2'>
           <h1 className='text-2xl font-bold tracking-tight'>Dashboard</h1>
           <div className='flex items-center gap-2'>
@@ -282,11 +377,69 @@ export function Dashboard() {
             <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
               {headerCards.map((header) => {
                 const sum = computeSumForHeader(header)
+                const isPrimaryHeader = primaryHeaders.includes(header)
+                const isDraggedOver = dragOverPrimaryHeader === header
                 return (
-                  <Card key={header}>
-                    <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-                      <CardTitle className='text-sm font-medium'>
-                        {header}
+                  <Card
+                    key={header}
+                    draggable={isPrimaryHeader}
+                    onDragStart={(event) => {
+                      event.dataTransfer.effectAllowed = 'move'
+                      event.dataTransfer.setData('text/plain', header)
+                      setDragOverlayPosition({
+                        x: event.clientX,
+                        y: event.clientY,
+                      })
+                      handlePrimaryHeaderDragStart(header)
+                    }}
+                    onDrag={(event) => {
+                      if (!isPrimaryHeader) return
+                      setDragOverlayPosition({
+                        x: event.clientX,
+                        y: event.clientY,
+                      })
+                    }}
+                    onDragEnd={handlePrimaryHeaderDragEnd}
+                    onDragOver={(event) => {
+                      if (!isPrimaryHeader) return
+                      event.preventDefault()
+                      handlePrimaryHeaderDragMove(header, event)
+                      setDragOverPrimaryHeader(header)
+                    }}
+                    onDragEnter={(event) => {
+                      if (!isPrimaryHeader) return
+                      event.preventDefault()
+                      handlePrimaryHeaderDragMove(header, event)
+                      setDragOverPrimaryHeader(header)
+                    }}
+                    onDrop={(event) => {
+                      if (!isPrimaryHeader) return
+                      event.preventDefault()
+                      handlePrimaryHeaderDrop(header)
+                    }}
+                    className={
+                      isPrimaryHeader ? 'transition-shadow' : undefined
+                    }
+                  >
+                    <CardHeader
+                      className={`flex flex-row items-center justify-between space-y-0 pb-2 ${
+                        isPrimaryHeader
+                          ? 'cursor-grab select-none active:cursor-grabbing'
+                          : ''
+                      } ${
+                        isDraggedOver ? 'rounded-md ring-2 ring-primary/40' : ''
+                      }`}
+                      title={
+                        isPrimaryHeader
+                          ? 'Drag to reorder this primary header'
+                          : undefined
+                      }
+                    >
+                      <CardTitle className='flex items-center gap-1 text-sm font-medium'>
+                        {isPrimaryHeader && (
+                          <GripVertical className='h-4 w-4 shrink-0 text-muted-foreground' />
+                        )}
+                        <span>{header}</span>
                       </CardTitle>
                       <DropdownMenu modal={false}>
                         <DropdownMenuTrigger asChild>
