@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { GripVertical } from 'lucide-react'
+import { Eye, EyeOff, GripVertical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -248,6 +248,46 @@ export function Dashboard() {
     return anyNumeric ? sum : null
   }
 
+  function isHeaderNumeric(header: string): boolean {
+    if (!data || data.length === 0) return false
+    
+    // Check if at least 50% of non-empty values in the column are numeric
+    let numericCount = 0
+    let nonEmptyCount = 0
+    
+    for (const row of data) {
+      const value = row[header]
+      if (value === null || value === undefined || String(value).trim() === '') {
+        continue
+      }
+      
+      nonEmptyCount++
+      
+      // Check if value is already a number type
+      if (typeof value === 'number') {
+        numericCount++
+        continue
+      }
+      
+      // For strings, check if it looks like a number (with optional currency/formatting)
+      const s = String(value).trim()
+      // Remove common currency symbols and thousand separators
+      const cleaned = s.replace(/[$€£¥,\s]/g, '')
+      
+      // Check if the cleaned string is a valid number
+      // Must start with optional minus, then digits, optional decimal point and more digits
+      if (/^-?\d+\.?\d*$/.test(cleaned) && cleaned !== '' && cleaned !== '-') {
+        const n = Number(cleaned)
+        if (Number.isFinite(n)) {
+          numericCount++
+        }
+      }
+    }
+    
+    // Consider numeric if at least 50% of non-empty values are numeric
+    return nonEmptyCount > 0 && numericCount / nonEmptyCount >= 0.5
+  }
+
   return (
     <>
       {/* ===== Top Heading ===== */}
@@ -278,16 +318,27 @@ export function Dashboard() {
                 <span className='text-xs text-muted-foreground'>Dragging</span>
               </CardHeader>
               <CardContent>
-                <div className='text-2xl font-bold'>
-                  {aggregation[draggedPrimaryHeader] === 'sum'
-                    ? (() => {
-                        const sum = computeSumForHeader(draggedPrimaryHeader)
-                        return sum !== null ? sum.toLocaleString() : '-'
-                      })()
-                    : String(data[0]?.[draggedPrimaryHeader] ?? '').slice(
-                        0,
-                        16
-                      ) || '-'}
+                <div className='flex items-start justify-between'>
+                  <div className='text-2xl font-bold'>
+                    {aggregation[draggedPrimaryHeader] === 'sum'
+                      ? (() => {
+                          const sum = computeSumForHeader(draggedPrimaryHeader)
+                          return sum !== null ? sum.toLocaleString() : '-'
+                        })()
+                      : String(data[0]?.[draggedPrimaryHeader] ?? '').slice(
+                          0,
+                          16
+                        ) || '-'}
+                  </div>
+                  {isHeaderNumeric(draggedPrimaryHeader) && (
+                    <div className='h-8 w-8 shrink-0 flex items-center justify-center'>
+                      {aggregation[draggedPrimaryHeader] === 'sum' ? (
+                        <EyeOff className='h-4 w-4' />
+                      ) : (
+                        <Eye className='h-4 w-4' />
+                      )}
+                    </div>
+                  )}
                 </div>
                 <p className='text-xs text-muted-foreground'>
                   {aggregation[draggedPrimaryHeader] === 'sum'
@@ -414,8 +465,9 @@ export function Dashboard() {
             <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
               {headerCards.map((header) => {
                 const sum = computeSumForHeader(header)
-                const isPrimaryHeader = primaryHeaders.includes(header)
                 const isDraggedOver = dragOverPrimaryHeader === header
+                const isNumeric = isHeaderNumeric(header)
+                const isShowingSum = aggregation[header] === 'sum'
                 return (
                   <Card
                     key={header}
@@ -515,12 +567,42 @@ export function Dashboard() {
                       </DropdownMenu>
                     </CardHeader>
                     <CardContent>
-                      <div className='text-2xl font-bold'>
-                        {aggregation[header] === 'sum'
-                          ? sum !== null
-                            ? sum.toLocaleString()
-                            : '-'
-                          : String(data[0]?.[header] ?? '').slice(0, 16) || '-'}
+                      <div className='flex items-start justify-between'>
+                        <div className='text-2xl font-bold'>
+                          {aggregation[header] === 'sum'
+                            ? sum !== null
+                              ? sum.toLocaleString()
+                              : '-'
+                            : String(data[0]?.[header] ?? '').slice(0, 16) ||
+                              '-'}
+                        </div>
+                        {isNumeric && (
+                          <Button
+                            variant='ghost'
+                            size='icon'
+                            className='h-8 w-8 shrink-0'
+                            onMouseEnter={() => {
+                              setAggregation((prev) => ({
+                                ...prev,
+                                [header]: 'sum',
+                              }))
+                            }}
+                            onMouseLeave={() => {
+                              setAggregation((prev) => ({
+                                ...prev,
+                                [header]: null,
+                              }))
+                            }}
+                            aria-label={`Show sum for ${header} on hover`}
+                            title='Hover to show sum'
+                          >
+                            {isShowingSum ? (
+                              <EyeOff className='h-4 w-4' />
+                            ) : (
+                              <Eye className='h-4 w-4' />
+                            )}
+                          </Button>
+                        )}
                       </div>
                       <p className='text-xs text-muted-foreground'>
                         {aggregation[header] === 'sum'
