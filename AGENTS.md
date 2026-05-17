@@ -6,6 +6,20 @@ This file describes how automated agents, contributors, and pair-programming ass
 
 Agent behaviour (must follow)
 ----------------------------
+- Always learning important codebase before writing the code, example:
+	- backend/
+	- src/components/layout
+	- src/components/ui
+	- src/components/dashboard
+	- src/components/auth
+	- src/components/chats
+	- src/components/settings
+	- src/components/tasks
+	- src/components/users
+	- src/components/lib
+	- src/components/routes
+	- src/components/styles
+- Do not always generate Markdown "How to use ..." or relevant.
 - Ask clarifying questions before making ambiguous or large changes.
 - Make small, well-scoped edits and open a draft PR for larger work.
 - Never add secrets, credentials, or environment values to the repo. Use environment variables or secret stores.
