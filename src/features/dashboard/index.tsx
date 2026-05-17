@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -6,6 +7,15 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ConfigDrawer } from '@/components/config-drawer'
 import { Header } from '@/components/layout/header'
@@ -19,6 +29,75 @@ import { Overview } from './components/overview'
 import { RecentSales } from './components/recent-sales'
 
 export function Dashboard() {
+  const [data, setData] = React.useState<Record<string, unknown>[]>([])
+  const [headers, setHeaders] = React.useState<string[]>([])
+  const [visible, setVisible] = React.useState<Record<string, boolean>>({})
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null)
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const fd = new FormData()
+    fd.append('file', file)
+
+    try {
+      const res = await fetch(
+        'http://localhost:8000/api/convert/csv-to-array?use_headers=true',
+        {
+          method: 'POST',
+          body: fd,
+        }
+      )
+      const json = await res.json()
+      const rows = (json?.data ?? []) as Record<string, unknown>[]
+      const nextHeaders = rows.length ? Object.keys(rows[0]) : []
+
+      setData(rows)
+      setHeaders(nextHeaders)
+      setVisible(
+        nextHeaders.reduce<Record<string, boolean>>((acc, header) => {
+          acc[header] = true
+          return acc
+        }, {})
+      )
+    } catch (err) {
+      console.error('CSV upload failed', err)
+    } finally {
+      e.target.value = ''
+    }
+  }
+
+  function toggleHeader(key: string) {
+    setVisible((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  function showOnly(key: string) {
+    setVisible(
+      headers.reduce<Record<string, boolean>>((acc, header) => {
+        acc[header] = header === key
+        return acc
+      }, {})
+    )
+  }
+
+  function showAll() {
+    setVisible(
+      headers.reduce<Record<string, boolean>>((acc, header) => {
+        acc[header] = true
+        return acc
+      }, {})
+    )
+  }
+
+  function clearCsv() {
+    setData([])
+    setHeaders([])
+    setVisible({})
+  }
+
+  const headerCards = headers.slice(0, 4)
+
   return (
     <>
       {/* ===== Top Heading ===== */}
@@ -34,7 +113,20 @@ export function Dashboard() {
       <Main>
         <div className='mb-2 flex items-center justify-between space-y-2'>
           <h1 className='text-2xl font-bold tracking-tight'>Dashboard</h1>
-          <div className='flex items-center space-x-2'>
+          <div className='flex items-center gap-2'>
+            <input
+              ref={fileInputRef}
+              type='file'
+              accept='.csv,text/csv'
+              onChange={handleFileChange}
+              className='hidden'
+            />
+            <Button
+              variant='outline'
+              onClick={() => fileInputRef.current?.click()}
+            >
+              Import CSV
+            </Button>
             <Button>Download</Button>
           </div>
         </div>
@@ -57,107 +149,51 @@ export function Dashboard() {
           </div>
           <TabsContent value='overview' className='space-y-4'>
             <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
-              <Card>
-                <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-                  <CardTitle className='text-sm font-medium'>
-                    Total Revenue
-                  </CardTitle>
-                  <svg
-                    xmlns='http://www.w3.org/2000/svg'
-                    viewBox='0 0 24 24'
-                    fill='none'
-                    stroke='currentColor'
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                    strokeWidth='2'
-                    className='h-4 w-4 text-muted-foreground'
-                  >
-                    <path d='M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6' />
-                  </svg>
-                </CardHeader>
-                <CardContent>
-                  <div className='text-2xl font-bold'>$45,231.89</div>
-                  <p className='text-xs text-muted-foreground'>
-                    +20.1% from last month
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-                  <CardTitle className='text-sm font-medium'>
-                    Subscriptions
-                  </CardTitle>
-                  <svg
-                    xmlns='http://www.w3.org/2000/svg'
-                    viewBox='0 0 24 24'
-                    fill='none'
-                    stroke='currentColor'
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                    strokeWidth='2'
-                    className='h-4 w-4 text-muted-foreground'
-                  >
-                    <path d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2' />
-                    <circle cx='9' cy='7' r='4' />
-                    <path d='M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75' />
-                  </svg>
-                </CardHeader>
-                <CardContent>
-                  <div className='text-2xl font-bold'>+2350</div>
-                  <p className='text-xs text-muted-foreground'>
-                    +180.1% from last month
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-                  <CardTitle className='text-sm font-medium'>Sales</CardTitle>
-                  <svg
-                    xmlns='http://www.w3.org/2000/svg'
-                    viewBox='0 0 24 24'
-                    fill='none'
-                    stroke='currentColor'
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                    strokeWidth='2'
-                    className='h-4 w-4 text-muted-foreground'
-                  >
-                    <rect width='20' height='14' x='2' y='5' rx='2' />
-                    <path d='M2 10h20' />
-                  </svg>
-                </CardHeader>
-                <CardContent>
-                  <div className='text-2xl font-bold'>+12,234</div>
-                  <p className='text-xs text-muted-foreground'>
-                    +19% from last month
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-                  <CardTitle className='text-sm font-medium'>
-                    Active Now
-                  </CardTitle>
-                  <svg
-                    xmlns='http://www.w3.org/2000/svg'
-                    viewBox='0 0 24 24'
-                    fill='none'
-                    stroke='currentColor'
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                    strokeWidth='2'
-                    className='h-4 w-4 text-muted-foreground'
-                  >
-                    <path d='M22 12h-4l-3 9L9 3l-3 9H2' />
-                  </svg>
-                </CardHeader>
-                <CardContent>
-                  <div className='text-2xl font-bold'>+573</div>
-                  <p className='text-xs text-muted-foreground'>
-                    +201 since last hour
-                  </p>
-                </CardContent>
-              </Card>
+              {headerCards.map((header) => (
+                <Card key={header}>
+                  <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+                    <CardTitle className='text-sm font-medium'>
+                      {header}
+                    </CardTitle>
+                    <DropdownMenu modal={false}>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant='ghost'
+                          size='icon'
+                          className='h-8 w-8'
+                          aria-label={`Header options for ${header}`}
+                        >
+                          <span className='text-lg leading-none'>⋯</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align='end' className='w-44'>
+                        <DropdownMenuLabel>Header: {header}</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuCheckboxItem
+                          checked={!!visible[header]}
+                          onCheckedChange={() => toggleHeader(header)}
+                        >
+                          Visible
+                        </DropdownMenuCheckboxItem>
+                        <DropdownMenuItem onSelect={() => showOnly(header)}>
+                          Show only this
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={showAll}>
+                          Show all
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </CardHeader>
+                  <CardContent>
+                    <div className='text-2xl font-bold'>
+                      {String(data[0]?.[header] ?? '').slice(0, 16) || '-'}
+                    </div>
+                    <p className='text-xs text-muted-foreground'>
+                      {visible[header] ? 'Visible header' : 'Hidden header'}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
             <div className='grid grid-cols-1 gap-4 lg:grid-cols-7'>
               <Card className='col-span-1 lg:col-span-4'>
@@ -165,7 +201,12 @@ export function Dashboard() {
                   <CardTitle>Overview</CardTitle>
                 </CardHeader>
                 <CardContent className='ps-2'>
-                  <Overview />
+                  <Overview
+                    data={data}
+                    headers={headers}
+                    visible={visible}
+                    onClear={clearCsv}
+                  />
                 </CardContent>
               </Card>
               <Card className='col-span-1 lg:col-span-3'>
