@@ -133,17 +133,54 @@ export function Dashboard() {
   function reorderPrimaryHeaders(activeHeader: string, overHeader: string) {
     if (activeHeader === overHeader) return
 
-    setPrimaryHeaders((prev) => {
-      const activeIndex = prev.indexOf(activeHeader)
-      const overIndex = prev.indexOf(overHeader)
+    // If both are in primaryHeaders, reorder within primaryHeaders
+    const activeInPrimary = primaryHeaders.includes(activeHeader)
+    const overInPrimary = primaryHeaders.includes(overHeader)
 
-      if (activeIndex < 0 || overIndex < 0) return prev
+    if (activeInPrimary && overInPrimary) {
+      setPrimaryHeaders((prev) => {
+        const activeIndex = prev.indexOf(activeHeader)
+        const overIndex = prev.indexOf(overHeader)
 
-      const next = [...prev]
-      next.splice(activeIndex, 1)
-      next.splice(overIndex, 0, activeHeader)
-      return next
-    })
+        if (activeIndex < 0 || overIndex < 0) return prev
+
+        const next = [...prev]
+        next.splice(activeIndex, 1)
+        next.splice(overIndex, 0, activeHeader)
+        return next
+      })
+    } else {
+      // If dragging non-primary or mixing, add both to primaryHeaders and reorder
+      setPrimaryHeaders((prev) => {
+        let next = [...prev]
+        
+        // Add activeHeader if not in primary
+        if (!next.includes(activeHeader)) {
+          next.push(activeHeader)
+        }
+        
+        // Add overHeader if not in primary
+        if (!next.includes(overHeader)) {
+          next.push(overHeader)
+        }
+        
+        // Now reorder
+        const activeIndex = next.indexOf(activeHeader)
+        const overIndex = next.indexOf(overHeader)
+        
+        next.splice(activeIndex, 1)
+        next.splice(overIndex, 0, activeHeader)
+        
+        return next
+      })
+      
+      // Ensure both headers are visible
+      setVisible((prev) => ({
+        ...prev,
+        [activeHeader]: true,
+        [overHeader]: true,
+      }))
+    }
   }
 
   function handlePrimaryHeaderDragStart(header: string) {
@@ -382,7 +419,7 @@ export function Dashboard() {
                 return (
                   <Card
                     key={header}
-                    draggable={isPrimaryHeader}
+                    draggable={true}
                     onDragStart={(event) => {
                       event.dataTransfer.effectAllowed = 'move'
                       event.dataTransfer.setData('text/plain', header)
@@ -393,7 +430,6 @@ export function Dashboard() {
                       handlePrimaryHeaderDragStart(header)
                     }}
                     onDrag={(event) => {
-                      if (!isPrimaryHeader) return
                       setDragOverlayPosition({
                         x: event.clientX,
                         y: event.clientY,
@@ -401,44 +437,29 @@ export function Dashboard() {
                     }}
                     onDragEnd={handlePrimaryHeaderDragEnd}
                     onDragOver={(event) => {
-                      if (!isPrimaryHeader) return
                       event.preventDefault()
                       handlePrimaryHeaderDragMove(header, event)
                       setDragOverPrimaryHeader(header)
                     }}
                     onDragEnter={(event) => {
-                      if (!isPrimaryHeader) return
                       event.preventDefault()
                       handlePrimaryHeaderDragMove(header, event)
                       setDragOverPrimaryHeader(header)
                     }}
                     onDrop={(event) => {
-                      if (!isPrimaryHeader) return
                       event.preventDefault()
                       handlePrimaryHeaderDrop(header)
                     }}
-                    className={
-                      isPrimaryHeader ? 'transition-shadow' : undefined
-                    }
+                    className='transition-shadow'
                   >
                     <CardHeader
-                      className={`flex flex-row items-center justify-between space-y-0 pb-2 ${
-                        isPrimaryHeader
-                          ? 'cursor-grab select-none active:cursor-grabbing'
-                          : ''
-                      } ${
+                      className={`flex flex-row items-center justify-between space-y-0 pb-2 cursor-grab select-none active:cursor-grabbing ${
                         isDraggedOver ? 'rounded-md ring-2 ring-primary/40' : ''
                       }`}
-                      title={
-                        isPrimaryHeader
-                          ? 'Drag to reorder this primary header'
-                          : undefined
-                      }
+                      title='Drag to reorder this header'
                     >
                       <CardTitle className='flex items-center gap-1 text-sm font-medium'>
-                        {isPrimaryHeader && (
-                          <GripVertical className='h-4 w-4 shrink-0 text-muted-foreground' />
-                        )}
+                        <GripVertical className='h-4 w-4 shrink-0 text-muted-foreground' />
                         <span>{header}</span>
                       </CardTitle>
                       <DropdownMenu modal={false}>
