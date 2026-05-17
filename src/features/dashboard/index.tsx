@@ -7,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -32,6 +33,11 @@ export function Dashboard() {
   const [data, setData] = React.useState<Record<string, unknown>[]>([])
   const [headers, setHeaders] = React.useState<string[]>([])
   const [visible, setVisible] = React.useState<Record<string, boolean>>({})
+  const [aggregation, setAggregation] = React.useState<
+    Record<string, 'sum' | null>
+  >({})
+  const [primaryHeaders, setPrimaryHeaders] = React.useState<string[]>([])
+  const [error, setError] = React.useState<string | null>(null)
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -69,16 +75,27 @@ export function Dashboard() {
   }
 
   function toggleHeader(key: string) {
-    setVisible((prev) => ({ ...prev, [key]: !prev[key] }))
+    setVisible((prev) => {
+      const currently = !!prev[key]
+      const selectedCount = Object.values(prev).filter(Boolean).length
+      const nextCount = selectedCount + (currently ? -1 : 1)
+      if (nextCount < 4) {
+        setError('Pilih minimal 4 headers')
+        return prev
+      }
+      setError(null)
+      const next = { ...prev, [key]: !currently }
+      // if being turned off, remove from primaryHeaders
+      if (currently && !next[key]) {
+        setPrimaryHeaders((prevP) => prevP.filter((p) => p !== key))
+      }
+      return next
+    })
   }
 
-  function showOnly(key: string) {
-    setVisible(
-      headers.reduce<Record<string, boolean>>((acc, header) => {
-        acc[header] = header === key
-        return acc
-      }, {})
-    )
+  function showOnly(_key: string) {
+    // Disallow showing only one header because we require at least 4 selected
+    setError('Pilih minimal 4 headers')
   }
 
   function showAll() {
@@ -88,15 +105,55 @@ export function Dashboard() {
         return acc
       }, {})
     )
+    setError(null)
   }
 
   function clearCsv() {
     setData([])
     setHeaders([])
     setVisible({})
+    setAggregation({})
+    setPrimaryHeaders([])
   }
 
-  const headerCards = headers.slice(0, 4)
+  // Build header cards list: primaryHeaders (if visible) first, then up to 4 total.
+  const visibleList = headers.filter((h) => visible[h])
+  const headerCards: string[] = []
+  for (const ph of primaryHeaders) {
+    if (visible[ph] && !headerCards.includes(ph)) headerCards.push(ph)
+    if (headerCards.length >= 4) break
+  }
+  for (const h of visibleList) {
+    if (headerCards.length >= 4) break
+    if (!headerCards.includes(h)) headerCards.push(h)
+  }
+  // fallback to first headers if still empty
+  if (headerCards.length === 0) headerCards.push(...headers.slice(0, 4))
+
+  function parseNumber(value: unknown): number | null {
+    if (value === null || typeof value === 'undefined') return null
+    if (typeof value === 'number') return Number(value)
+    const s = String(value).trim()
+    if (s === '') return null
+    // remove currency symbols and spaces, keep digits, dots and minus
+    const cleaned = s.replace(/[^0-9.\-]+/g, '')
+    const n = Number(cleaned)
+    return Number.isFinite(n) ? n : null
+  }
+
+  function computeSumForHeader(header: string) {
+    if (!data || data.length === 0) return null
+    let anyNumeric = false
+    const sum = data.reduce((acc, row) => {
+      const v = parseNumber(row[header])
+      if (v !== null) {
+        anyNumeric = true
+        return acc + v
+      }
+      return acc
+    }, 0)
+    return anyNumeric ? sum : null
+  }
 
   return (
     <>
@@ -128,6 +185,80 @@ export function Dashboard() {
               Import CSV
             </Button>
             <Button>Download</Button>
+            {headers.length > 0 && (
+              <div className='ms-3 flex items-center'>
+                <DropdownMenu modal={false}>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant='outline' size='sm'>
+                      Columns
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align='end' className='w-72'>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel>Headers</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onSelect={() =>
+                        setVisible(
+                          headers.reduce<Record<string, boolean>>((acc, h) => {
+                            acc[h] = true
+                            return acc
+                          }, {})
+                        )
+                      }
+                    >
+                      Show all
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        // Hiding all would violate min-4 rule
+                        setError('Pilih minimal 4 headers')
+                      }}
+                    >
+                      Hide all
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <div className='max-h-60 overflow-auto'>
+                      {headers.map((h) => (
+                        <div
+                          key={h}
+                          className='flex items-center justify-between px-2'
+                        >
+                          <DropdownMenuCheckboxItem
+                            className='flex-1 capitalize'
+                            checked={!!visible[h]}
+                            onCheckedChange={() => toggleHeader(h)}
+                          >
+                            {h}
+                          </DropdownMenuCheckboxItem>
+                          <div className='ms-2'>
+                            <Checkbox
+                              aria-label={`Set ${h} as primary`}
+                              checked={primaryHeaders.includes(h)}
+                              onCheckedChange={(v) => {
+                                const isChecked = !!v
+                                if (isChecked) {
+                                  setPrimaryHeaders((prevP) =>
+                                    prevP.includes(h) ? prevP : [...prevP, h]
+                                  )
+                                  setVisible((prev) => ({ ...prev, [h]: true }))
+                                  setError(null)
+                                } else {
+                                  setPrimaryHeaders((prevP) =>
+                                    prevP.filter((p) => p !== h)
+                                  )
+                                }
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                {error && <p className='ms-2 text-sm text-red-600'>{error}</p>}
+              </div>
+            )}
           </div>
         </div>
         <Tabs
@@ -149,51 +280,85 @@ export function Dashboard() {
           </div>
           <TabsContent value='overview' className='space-y-4'>
             <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
-              {headerCards.map((header) => (
-                <Card key={header}>
-                  <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-                    <CardTitle className='text-sm font-medium'>
-                      {header}
-                    </CardTitle>
-                    <DropdownMenu modal={false}>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant='ghost'
-                          size='icon'
-                          className='h-8 w-8'
-                          aria-label={`Header options for ${header}`}
-                        >
-                          <span className='text-lg leading-none'>⋯</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align='end' className='w-44'>
-                        <DropdownMenuLabel>Header: {header}</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuCheckboxItem
-                          checked={!!visible[header]}
-                          onCheckedChange={() => toggleHeader(header)}
-                        >
-                          Visible
-                        </DropdownMenuCheckboxItem>
-                        <DropdownMenuItem onSelect={() => showOnly(header)}>
-                          Show only this
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={showAll}>
-                          Show all
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </CardHeader>
-                  <CardContent>
-                    <div className='text-2xl font-bold'>
-                      {String(data[0]?.[header] ?? '').slice(0, 16) || '-'}
-                    </div>
-                    <p className='text-xs text-muted-foreground'>
-                      {visible[header] ? 'Visible header' : 'Hidden header'}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
+              {headerCards.map((header) => {
+                const sum = computeSumForHeader(header)
+                return (
+                  <Card key={header}>
+                    <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+                      <CardTitle className='text-sm font-medium'>
+                        {header}
+                      </CardTitle>
+                      <DropdownMenu modal={false}>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant='ghost'
+                            size='icon'
+                            className='h-8 w-8'
+                            aria-label={`Header options for ${header}`}
+                          >
+                            <span className='text-lg leading-none'>⋯</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align='end' className='w-44'>
+                          <DropdownMenuLabel>
+                            Header: {header}
+                          </DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuCheckboxItem
+                            checked={!!visible[header]}
+                            onCheckedChange={() => toggleHeader(header)}
+                          >
+                            Visible
+                          </DropdownMenuCheckboxItem>
+                          <DropdownMenuItem onSelect={() => showOnly(header)}>
+                            Show only this
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={showAll}>
+                            Show all
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onSelect={() =>
+                              setAggregation((prev) => ({
+                                ...prev,
+                                [header]: 'sum',
+                              }))
+                            }
+                          >
+                            Sum column
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onSelect={() =>
+                              setAggregation((prev) => ({
+                                ...prev,
+                                [header]: null,
+                              }))
+                            }
+                          >
+                            Clear aggregation
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </CardHeader>
+                    <CardContent>
+                      <div className='text-2xl font-bold'>
+                        {aggregation[header] === 'sum'
+                          ? sum !== null
+                            ? sum.toLocaleString()
+                            : '-'
+                          : String(data[0]?.[header] ?? '').slice(0, 16) || '-'}
+                      </div>
+                      <p className='text-xs text-muted-foreground'>
+                        {aggregation[header] === 'sum'
+                          ? 'Sum of column'
+                          : visible[header]
+                            ? 'Visible header'
+                            : 'Hidden header'}
+                      </p>
+                    </CardContent>
+                  </Card>
+                )
+              })}
             </div>
             <div className='grid grid-cols-1 gap-4 lg:grid-cols-7'>
               <Card className='col-span-1 lg:col-span-4'>
