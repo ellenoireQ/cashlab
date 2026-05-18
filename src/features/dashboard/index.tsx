@@ -628,7 +628,7 @@ export function Dashboard() {
                 <CardHeader>
                   <CardTitle>Anomaly Detection</CardTitle>
                   <CardDescription>
-                    AI-powered detection of unusual patterns
+                    Detection of unusual patterns in your data
                   </CardDescription>
                 </CardHeader>
                 <CardContent>

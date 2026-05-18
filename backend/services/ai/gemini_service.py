@@ -11,14 +11,17 @@ import json
 class GeminiService:
     """Service for interacting with Google Gemini AI"""
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, dev_mode: Optional[bool] = None):
         """
         Initialize Gemini service
         
         Args:
             api_key: Google AI Studio API key. If not provided, reads from env.
+            dev_mode: Enable development mode for preview/mock data. If not provided, reads from env.
         """
         self.api_key = api_key or os.getenv("GOOGLE_AI_API_KEY")
+        self.dev_mode = dev_mode if dev_mode is not None else os.getenv("DEVELOPMENT_MODE", "false").lower() == "true"
+        
         if not self.api_key:
             raise ValueError("GOOGLE_AI_API_KEY not found in environment variables")
         
@@ -51,6 +54,10 @@ class GeminiService:
         Returns:
             Dict with insights, anomalies, and trends
         """
+        # Development mode: return preview/mock data
+        if self.dev_mode:
+            return self._get_dev_preview(data, headers, analysis_type)
+        
         # Prepare data summary for AI
         data_summary = self._prepare_data_summary(data, headers)
         
@@ -124,6 +131,237 @@ class GeminiService:
             summary["columns"].append(col_info)
         
         return summary
+
+    def _get_dev_preview(
+        self,
+        data: List[Dict[str, Any]],
+        headers: List[str],
+        analysis_type: str
+    ) -> Dict[str, Any]:
+        """
+        Generate preview/mock data for development mode
+        
+        Args:
+            data: List of data rows (dicts)
+            headers: List of column headers
+            analysis_type: Type of analysis
+            
+        Returns:
+            Dict with preview insights based on actual data structure
+        """
+        import random
+        
+        data_summary = self._prepare_data_summary(data, headers)
+        
+        if analysis_type == "general":
+            # Find financial columns
+            financial_cols = [
+                col for col in data_summary['columns'] 
+                if col['type'] == 'numeric' and any(
+                    keyword in col['name'].lower() 
+                    for keyword in ['amount', 'price', 'cost', 'revenue', 'total', 'value', 'balance', 'payment']
+                )
+            ]
+            
+            insights = {
+                "key_insights": [
+                    f"Dataset contains {data_summary['row_count']} records across {len(headers)} columns",
+                    f"Found {len(financial_cols)} financial columns: {', '.join(c['name'] for c in financial_cols[:3])}",
+                    f"Data completeness: {sum(c['non_null_count'] for c in data_summary['columns']) / (len(data_summary['columns']) * data_summary['row_count']) * 100:.1f}% of fields populated"
+                ],
+                "data_quality": f"Dataset has {data_summary['row_count']} rows with {len(headers)} columns. Financial data appears in columns: {', '.join(c['name'] for c in financial_cols)}",
+                "recommendations": [
+                    "Review financial metrics for business insights",
+                    "Check for anomalies in transaction data",
+                    "Analyze trends over time periods"
+                ]
+            }
+            
+            # Add specific insights for financial columns
+            for col in financial_cols[:2]:
+                if 'sum' in col:
+                    insights["key_insights"].append(
+                        f"{col['name']}: Total = {col['sum']:,.2f}, Average = {col['avg']:,.2f}, Range = {col['min']:,.2f} to {col['max']:,.2f}"
+                    )
+            
+            return {
+                "success": True,
+                "insights": insights,
+                "analysis_type": analysis_type,
+                "dev_mode": True,
+                "note": "Development mode: Preview data based on actual dataset structure"
+            }
+        
+        elif analysis_type == "anomaly":
+            anomalies = []
+            
+            # Random scenario: 70% chance of finding anomalies
+            should_find_anomalies = random.random() < 0.7
+            
+            if should_find_anomalies:
+                # Check for financial columns with potential anomalies
+                for col in data_summary['columns']:
+                    if col['type'] == 'numeric':
+                        # Check for negative values in amount/revenue columns
+                        if any(keyword in col['name'].lower() for keyword in ['amount', 'revenue', 'price', 'total']):
+                            col_data = [row.get(col['name']) for row in data if row.get(col['name']) is not None]
+                            numeric_values = []
+                            for val in col_data:
+                                try:
+                                    cleaned = str(val).replace('$', '').replace(',', '').replace(' ', '').strip()
+                                    numeric_values.append(float(cleaned))
+                                except (ValueError, AttributeError):
+                                    pass
+                            
+                            if numeric_values:
+                                # Random chance to detect negative values
+                                negative_count = sum(1 for v in numeric_values if v < 0)
+                                if negative_count > 0 and random.random() < 0.8:
+                                    anomalies.append({
+                                        "column": col['name'],
+                                        "description": f"Found {negative_count} negative values in {col['name']} which may indicate refunds, returns, or data errors",
+                                        "severity": "medium",
+                                        "affected_rows": f"{negative_count} out of {len(numeric_values)} rows"
+                                    })
+                                
+                                # Random chance to detect outliers
+                                if len(numeric_values) > 3 and random.random() < 0.6:
+                                    mean = sum(numeric_values) / len(numeric_values)
+                                    variance = sum((x - mean) ** 2 for x in numeric_values) / len(numeric_values)
+                                    std_dev = variance ** 0.5
+                                    outliers = [v for v in numeric_values if abs(v - mean) > 3 * std_dev]
+                                    
+                                    if outliers:
+                                        anomalies.append({
+                                            "column": col['name'],
+                                            "description": f"Detected {len(outliers)} outlier values in {col['name']} that deviate significantly from the mean ({mean:,.2f})",
+                                            "severity": "low" if len(outliers) < 3 else "medium",
+                                            "affected_rows": f"{len(outliers)} outlier(s) detected"
+                                        })
+                    
+                    # Random chance to check for missing data
+                    if col['null_count'] > 0 and random.random() < 0.5:
+                        missing_pct = (col['null_count'] / data_summary['row_count']) * 100
+                        if missing_pct > 10 and any(keyword in col['name'].lower() for keyword in ['amount', 'price', 'cost', 'revenue', 'total']):
+                            anomalies.append({
+                                "column": col['name'],
+                                "description": f"Missing data in financial column {col['name']}: {col['null_count']} rows ({missing_pct:.1f}%) have no value",
+                                "severity": "high" if missing_pct > 30 else "medium",
+                                "affected_rows": f"{col['null_count']} rows missing data"
+                            })
+                
+                # If no real anomalies found but we decided to show some, generate mock ones
+                if not anomalies and should_find_anomalies:
+                    # Generate 1-3 random mock anomalies
+                    num_mock_anomalies = random.randint(1, 3)
+                    financial_cols = [
+                        col for col in data_summary['columns'] 
+                        if col['type'] == 'numeric'
+                    ]
+                    
+                    if financial_cols:
+                        mock_scenarios = [
+                            {
+                                "description": "Unusual spike detected in transaction values during specific time period",
+                                "severity": "medium"
+                            },
+                            {
+                                "description": "Duplicate entries found with identical amounts and timestamps",
+                                "severity": "low"
+                            },
+                            {
+                                "description": "Values exceed expected range based on historical patterns",
+                                "severity": "high"
+                            },
+                            {
+                                "description": "Inconsistent data format detected in numeric fields",
+                                "severity": "low"
+                            },
+                            {
+                                "description": "Potential data entry errors with rounded values appearing too frequently",
+                                "severity": "medium"
+                            }
+                        ]
+                        
+                        selected_scenarios = random.sample(mock_scenarios, min(num_mock_anomalies, len(mock_scenarios)))
+                        selected_cols = random.sample(financial_cols, min(num_mock_anomalies, len(financial_cols)))
+                        
+                        for i, scenario in enumerate(selected_scenarios):
+                            if i < len(selected_cols):
+                                affected_count = random.randint(1, max(2, data_summary['row_count'] // 10))
+                                anomalies.append({
+                                    "column": selected_cols[i]['name'],
+                                    "description": scenario["description"],
+                                    "severity": scenario["severity"],
+                                    "affected_rows": f"{affected_count} rows affected"
+                                })
+            
+            return {
+                "success": True,
+                "insights": {
+                    "anomalies": anomalies
+                },
+                "analysis_type": analysis_type,
+                "dev_mode": True,
+                "note": "Development mode: Random anomaly detection for testing purposes"
+            }
+        
+        elif analysis_type == "trend":
+            trends = []
+            correlations = []
+            predictions = []
+            
+            # Analyze numeric columns for trends
+            numeric_cols = [col for col in data_summary['columns'] if col['type'] == 'numeric']
+            
+            for col in numeric_cols[:3]:  # Limit to first 3 numeric columns
+                if 'avg' in col and 'max' in col and 'min' in col:
+                    range_pct = ((col['max'] - col['min']) / col['avg'] * 100) if col['avg'] != 0 else 0
+                    
+                    if range_pct > 100:
+                        trends.append({
+                            "type": "high_variance",
+                            "column": col['name'],
+                            "description": f"{col['name']} shows high variance (range: {col['min']:,.2f} to {col['max']:,.2f}, avg: {col['avg']:,.2f})",
+                            "confidence": "medium"
+                        })
+                    else:
+                        trends.append({
+                            "type": "stable",
+                            "column": col['name'],
+                            "description": f"{col['name']} appears relatively stable with average {col['avg']:,.2f}",
+                            "confidence": "medium"
+                        })
+            
+            # Add generic correlations
+            if len(numeric_cols) >= 2:
+                correlations.append(f"Potential correlation between {numeric_cols[0]['name']} and {numeric_cols[1]['name']} - requires time-series analysis")
+            
+            predictions.append("Further analysis needed with time-series data to generate accurate predictions")
+            predictions.append("Consider seasonal patterns if data spans multiple periods")
+            
+            return {
+                "success": True,
+                "insights": {
+                    "trends": trends,
+                    "correlations": correlations,
+                    "predictions": predictions
+                },
+                "analysis_type": analysis_type,
+                "dev_mode": True,
+                "note": "Development mode: Trend analysis based on statistical summary"
+            }
+        
+        # Default fallback
+        return {
+            "success": True,
+            "insights": {
+                "message": f"Development mode preview for {analysis_type} analysis",
+                "data_summary": data_summary
+            },
+            "analysis_type": analysis_type,
+            "dev_mode": True
+        }
 
     def _build_prompt(
         self,
@@ -330,6 +568,23 @@ Format your response as JSON:
     def generate_summary(self, data: List[Dict[str, Any]], headers: List[str]) -> str:
         """Generate a natural language summary of the data"""
         data_summary = self._prepare_data_summary(data, headers)
+        
+        # Development mode: return quick summary
+        if self.dev_mode:
+            financial_cols = [
+                col['name'] for col in data_summary['columns'] 
+                if col['type'] == 'numeric' and any(
+                    keyword in col['name'].lower() 
+                    for keyword in ['amount', 'price', 'cost', 'revenue', 'total', 'value']
+                )
+            ]
+            
+            summary = f"[DEV MODE] Dataset contains {data_summary['row_count']} rows with {len(headers)} columns. "
+            if financial_cols:
+                summary += f"Financial columns detected: {', '.join(financial_cols[:3])}. "
+            summary += "Ready for detailed analysis."
+            
+            return summary
         
         prompt = f"""
 Provide a brief BUSINESS-FOCUSED summary of this financial dataset in 2-3 sentences:

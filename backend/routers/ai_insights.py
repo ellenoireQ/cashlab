@@ -138,9 +138,12 @@ async def generate_summary(request: AnalyzeRequest):
 async def health_check():
     """Check if AI service is properly configured"""
     api_key = os.getenv("GOOGLE_AI_API_KEY")
+    dev_mode = os.getenv("DEVELOPMENT_MODE", "false").lower() == "true"
     
     return {
         "configured": bool(api_key),
         "service": "Google Gemini",
-        "status": "ready" if api_key else "not_configured"
+        "status": "ready" if api_key else "not_configured",
+        "development_mode": dev_mode,
+        "note": "Development mode returns preview data without calling AI API" if dev_mode else None
     }

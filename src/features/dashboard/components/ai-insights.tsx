@@ -1,11 +1,4 @@
 import * as React from 'react'
-import {
-  Sparkles,
-  TrendingUp,
-  Lightbulb,
-  CheckCircle2,
-  XCircle,
-} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -16,7 +9,6 @@ import {
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   analyzeDataWithAI,
@@ -39,7 +31,6 @@ export function AIInsights({ data, headers }: AIInsightsProps) {
     null
   )
   const [trends, setTrends] = React.useState<AIInsight | null>(null)
-  const [activeTab, setActiveTab] = React.useState<string>('overview')
 
   const hasData = data.length > 0 && headers.length > 0
 
@@ -104,9 +95,11 @@ export function AIInsights({ data, headers }: AIInsightsProps) {
   }
 
   React.useEffect(() => {
-    // Auto-generate summary when data changes
-    if (hasData && !summary) {
+    // Auto-generate all analyses when data changes
+    if (hasData && !summary && !generalInsights && !trends) {
       handleGenerateSummary()
+      handleAnalyzeOverview()
+      handleAnalyzeTrends()
     }
   }, [data, headers])
 
@@ -114,22 +107,16 @@ export function AIInsights({ data, headers }: AIInsightsProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className='flex items-center gap-2'>
-            <Sparkles className='h-5 w-5' />
-            AI Insights
-          </CardTitle>
+          <CardTitle>Insights</CardTitle>
           <CardDescription>
-            AI-powered analysis of your data
+            Intelligent analysis of your financial data
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className='flex min-h-[200px] items-center justify-center rounded-lg border border-dashed'>
-            <div className='text-center'>
-              <Sparkles className='mx-auto h-8 w-8 text-muted-foreground/50' />
-              <p className='mt-2 text-sm text-muted-foreground'>
-                Import CSV data to get AI insights
-              </p>
-            </div>
+            <p className='text-sm text-muted-foreground'>
+              Import CSV data to generate insights
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -138,273 +125,211 @@ export function AIInsights({ data, headers }: AIInsightsProps) {
 
   return (
     <div className='space-y-4'>
-      {/* Summary Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className='flex items-center gap-2'>
-            <Sparkles className='h-5 w-5' />
-            AI Summary
-          </CardTitle>
-          <CardDescription>
-            Quick overview of your dataset
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loadingSummary && !summary ? (
-            <div className='space-y-2'>
-              <Skeleton className='h-4 w-full' />
-              <Skeleton className='h-4 w-full' />
-              <Skeleton className='h-4 w-3/4' />
-            </div>
-          ) : summary ? (
-            <p className='text-sm leading-relaxed'>{summary}</p>
-          ) : (
-            <Button
-              variant='outline'
-              size='sm'
-              onClick={handleGenerateSummary}
-              disabled={loadingSummary}
-            >
-              Generate Summary
-            </Button>
-          )}
-        </CardContent>
-      </Card>
-
       {/* Error Alert */}
       {error && (
         <Alert variant='destructive'>
-          <XCircle className='h-4 w-4' />
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
-      {/* Analysis Tabs */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Detailed Analysis</CardTitle>
-          <CardDescription>
-            Deep dive into your data with AI
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className='grid w-full grid-cols-2'>
-              <TabsTrigger value='overview'>
-                <Lightbulb className='mr-2 h-4 w-4' />
-                Overview
-              </TabsTrigger>
-              <TabsTrigger value='trends'>
-                <TrendingUp className='mr-2 h-4 w-4' />
-                Trends
-              </TabsTrigger>
-            </TabsList>
+      {/* Summary */}
+      {(loadingSummary || summary) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Summary</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loadingSummary && !summary ? (
+              <div className='space-y-2'>
+                <Skeleton className='h-4 w-full' />
+                <Skeleton className='h-4 w-full' />
+                <Skeleton className='h-4 w-3/4' />
+              </div>
+            ) : (
+              <p className='text-sm text-muted-foreground leading-relaxed'>
+                {summary}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
-            <TabsContent value='overview' className='space-y-4'>
-              {!generalInsights ? (
-                <div className='py-8 text-center'>
-                  <Button
-                    onClick={handleAnalyzeOverview}
-                    disabled={loadingOverview}
-                  >
-                    <Sparkles className='mr-2 h-4 w-4' />
-                    Generate Insights
-                  </Button>
+      {/* Key Insights & Recommendations */}
+      <div className='grid gap-4 sm:grid-cols-2'>
+        {/* Key Insights */}
+        {(loadingOverview || generalInsights?.key_insights) && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Key Insights</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingOverview && !generalInsights ? (
+                <div className='space-y-3'>
+                  <Skeleton className='h-4 w-full' />
+                  <Skeleton className='h-4 w-full' />
+                  <Skeleton className='h-4 w-3/4' />
                 </div>
-              ) : loadingOverview ? (
-                <div className='space-y-4'>
+              ) : generalInsights?.key_insights ? (
+                <ul className='space-y-3'>
+                  {generalInsights.key_insights.map((insight, i) => (
+                    <li
+                      key={i}
+                      className='flex items-start gap-2 text-sm leading-relaxed'
+                    >
+                      <span className='mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary' />
+                      <span className='text-muted-foreground'>{insight}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Recommendations */}
+        {(loadingOverview || generalInsights?.recommendations) && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Recommendations</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingOverview && !generalInsights ? (
+                <div className='space-y-3'>
+                  <Skeleton className='h-4 w-full' />
+                  <Skeleton className='h-4 w-full' />
+                  <Skeleton className='h-4 w-3/4' />
+                </div>
+              ) : generalInsights?.recommendations ? (
+                <ul className='space-y-3'>
+                  {generalInsights.recommendations.map((rec, i) => (
+                    <li
+                      key={i}
+                      className='flex items-start gap-2 text-sm leading-relaxed'
+                    >
+                      <span className='mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-yellow-600' />
+                      <span className='text-muted-foreground'>{rec}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Trends */}
+      {(loadingTrends || trends) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Trends</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loadingTrends && !trends ? (
+              <div className='space-y-3'>
+                <Skeleton className='h-20 w-full' />
+                <Skeleton className='h-20 w-full' />
+              </div>
+            ) : trends ? (
+              <div className='space-y-4'>
+                {/* Trend Items */}
+                {trends.trends && trends.trends.length > 0 && (
                   <div className='space-y-3'>
-                    <Skeleton className='h-6 w-32' />
-                    <Skeleton className='h-4 w-full' />
-                    <Skeleton className='h-4 w-full' />
-                    <Skeleton className='h-4 w-3/4' />
-                  </div>
-                  <div className='space-y-3'>
-                    <Skeleton className='h-6 w-32' />
-                    <Skeleton className='h-20 w-full' />
-                  </div>
-                </div>
-              ) : (
-                <div className='space-y-4'>
-                  {generalInsights.key_insights && (
-                    <div>
-                      <h4 className='mb-2 flex items-center gap-2 text-sm font-semibold'>
-                        <CheckCircle2 className='h-4 w-4 text-green-600' />
-                        Key Insights
-                      </h4>
-                      <ul className='space-y-2'>
-                        {generalInsights.key_insights.map((insight, i) => (
-                          <li
-                            key={i}
-                            className='flex items-start gap-2 text-sm'
-                          >
-                            <span className='mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary' />
-                            <span>{insight}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {generalInsights.data_quality && (
-                    <div>
-                      <h4 className='mb-2 text-sm font-semibold'>
-                        Data Quality
-                      </h4>
-                      <p className='text-sm text-muted-foreground'>
-                        {generalInsights.data_quality}
-                      </p>
-                    </div>
-                  )}
-
-                  {generalInsights.recommendations && (
-                    <div>
-                      <h4 className='mb-2 flex items-center gap-2 text-sm font-semibold'>
-                        <Lightbulb className='h-4 w-4 text-yellow-600' />
-                        Recommendations
-                      </h4>
-                      <ul className='space-y-2'>
-                        {generalInsights.recommendations.map((rec, i) => (
-                          <li
-                            key={i}
-                            className='flex items-start gap-2 text-sm'
-                          >
-                            <span className='mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-yellow-600' />
-                            <span>{rec}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  <Button
-                    variant='outline'
-                    size='sm'
-                    onClick={handleAnalyzeOverview}
-                    disabled={loadingOverview}
-                  >
-                    Refresh Analysis
-                  </Button>
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value='trends' className='space-y-4'>
-              {!trends ? (
-                <div className='py-8 text-center'>
-                  <Button
-                    onClick={handleAnalyzeTrends}
-                    disabled={loadingTrends}
-                  >
-                    <TrendingUp className='mr-2 h-4 w-4' />
-                    Analyze Trends
-                  </Button>
-                </div>
-              ) : loadingTrends ? (
-                <div className='space-y-4'>
-                  <div className='space-y-3'>
-                    <Skeleton className='h-6 w-40' />
-                    <Skeleton className='h-24 w-full' />
-                    <Skeleton className='h-24 w-full' />
-                  </div>
-                  <div className='space-y-3'>
-                    <Skeleton className='h-6 w-32' />
-                    <Skeleton className='h-4 w-full' />
-                    <Skeleton className='h-4 w-full' />
-                  </div>
-                </div>
-              ) : (
-                <div className='space-y-4'>
-                  {trends.trends && trends.trends.length > 0 && (
-                    <div>
-                      <h4 className='mb-3 text-sm font-semibold'>
-                        Identified Trends
-                      </h4>
-                      <div className='space-y-3'>
-                        {trends.trends.map((trend, i) => (
-                          <Card key={i}>
-                            <CardHeader className='pb-3'>
-                              <div className='flex items-start justify-between'>
-                                <CardTitle className='text-sm font-medium'>
-                                  {trend.column}
-                                </CardTitle>
-                                <div className='flex gap-2'>
-                                  <Badge variant='outline'>{trend.type}</Badge>
-                                  <Badge
-                                    variant={
-                                      trend.confidence === 'high'
-                                        ? 'default'
-                                        : 'secondary'
-                                    }
-                                  >
-                                    {trend.confidence}
-                                  </Badge>
-                                </div>
-                              </div>
-                            </CardHeader>
-                            <CardContent className='pb-3'>
-                              <p className='text-sm text-muted-foreground'>
-                                {trend.description}
-                              </p>
-                            </CardContent>
-                          </Card>
-                        ))}
+                    {trends.trends.map((trend, i) => (
+                      <div
+                        key={i}
+                        className='rounded-lg border bg-muted/30 p-3'
+                      >
+                        <div className='mb-2 flex items-start justify-between gap-2'>
+                          <h5 className='text-sm font-medium'>{trend.column}</h5>
+                          <div className='flex gap-1.5'>
+                            <Badge variant='outline' className='text-xs'>
+                              {trend.type}
+                            </Badge>
+                            <Badge
+                              variant={
+                                trend.confidence === 'high'
+                                  ? 'default'
+                                  : 'secondary'
+                              }
+                              className='text-xs'
+                            >
+                              {trend.confidence}
+                            </Badge>
+                          </div>
+                        </div>
+                        <p className='text-sm text-muted-foreground'>
+                          {trend.description}
+                        </p>
                       </div>
-                    </div>
-                  )}
+                    ))}
+                  </div>
+                )}
 
-                  {trends.correlations && trends.correlations.length > 0 && (
-                    <div>
-                      <h4 className='mb-2 text-sm font-semibold'>
-                        Correlations
-                      </h4>
-                      <ul className='space-y-2'>
-                        {trends.correlations.map((corr, i) => (
-                          <li
-                            key={i}
-                            className='flex items-start gap-2 text-sm'
-                          >
-                            <span className='mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary' />
-                            <span>{corr}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                {/* Correlations */}
+                {trends.correlations && trends.correlations.length > 0 && (
+                  <div>
+                    <h5 className='mb-2 text-sm font-medium'>Correlations</h5>
+                    <ul className='space-y-2'>
+                      {trends.correlations.map((corr, i) => (
+                        <li
+                          key={i}
+                          className='flex items-start gap-2 text-sm'
+                        >
+                          <span className='mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary' />
+                          <span className='text-muted-foreground'>{corr}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
-                  {trends.predictions && trends.predictions.length > 0 && (
-                    <div>
-                      <h4 className='mb-2 text-sm font-semibold'>
-                        Predictions
-                      </h4>
-                      <ul className='space-y-2'>
-                        {trends.predictions.map((pred, i) => (
-                          <li
-                            key={i}
-                            className='flex items-start gap-2 text-sm'
-                          >
-                            <span className='mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-600' />
-                            <span>{pred}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                {/* Predictions */}
+                {trends.predictions && trends.predictions.length > 0 && (
+                  <div>
+                    <h5 className='mb-2 text-sm font-medium'>Predictions</h5>
+                    <ul className='space-y-2'>
+                      {trends.predictions.map((pred, i) => (
+                        <li
+                          key={i}
+                          className='flex items-start gap-2 text-sm'
+                        >
+                          <span className='mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-600' />
+                          <span className='text-muted-foreground'>{pred}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
+                <div className='flex justify-end pt-2'>
                   <Button
                     variant='outline'
                     size='sm'
                     onClick={handleAnalyzeTrends}
                     disabled={loadingTrends}
                   >
-                    Refresh Analysis
+                    Refresh
                   </Button>
                 </div>
-              )}
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Data Quality */}
+      {generalInsights?.data_quality && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Data Quality</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className='text-sm text-muted-foreground leading-relaxed'>
+              {generalInsights.data_quality}
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
