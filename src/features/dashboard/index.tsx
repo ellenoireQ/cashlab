@@ -381,14 +381,15 @@ export function Dashboard() {
                     <DropdownMenuLabel>View Options</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
-                      onSelect={() =>
+                      onSelect={() => {
                         setVisible(
                           headers.reduce<Record<string, boolean>>((acc, h) => {
                             acc[h] = true
                             return acc
                           }, {})
                         )
-                      }
+                        setError(null)
+                      }}
                     >
                       Show all
                     </DropdownMenuItem>
@@ -402,22 +403,21 @@ export function Dashboard() {
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <div className='max-h-60 overflow-auto'>
-                      {headers.map((h) => (
-                        <div
-                          key={h}
-                          className='flex items-center justify-between px-2'
-                        >
-                          <DropdownMenuCheckboxItem
-                            className='flex-1 capitalize'
-                            checked={!!visible[h]}
-                            onCheckedChange={() => toggleHeader(h)}
+                      {headers.map((h) => {
+                        // Check if this header is currently displayed as a card
+                        const isDisplayedAsCard = headerCards.includes(h)
+                        
+                        return (
+                          <div
+                            key={h}
+                            className='flex items-center justify-between px-2 py-1.5'
                           >
-                            {h}
-                          </DropdownMenuCheckboxItem>
-                          <div className='ms-2'>
+                            <span className='flex-1 text-sm capitalize'>
+                              {h}
+                            </span>
                             <Checkbox
-                              aria-label={`Set ${h} as primary`}
-                              checked={primaryHeaders.includes(h)}
+                              aria-label={`Display ${h} as card`}
+                              checked={isDisplayedAsCard}
                               onCheckedChange={(v) => {
                                 const isChecked = !!v
                                 if (isChecked) {
@@ -434,8 +434,8 @@ export function Dashboard() {
                               }}
                             />
                           </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   </DropdownMenuContent>
                 </DropdownMenu>
