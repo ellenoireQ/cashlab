@@ -29,10 +29,7 @@ import { ThemeSwitch } from '@/components/theme-switch'
 import { uploadCsvFile } from '@/lib/api'
 import { Analytics } from './components/analytics'
 import { Overview } from './components/overview'
-import {
-  RecentActivity,
-  type Activity,
-} from './components/recent-activity'
+import { AnomalyDetection } from './components/anomaly-detection'
 
 export function Dashboard() {
   const [data, setData] = React.useState<Record<string, unknown>[]>([])
@@ -53,29 +50,7 @@ export function Dashboard() {
     string | null
   >(null)
   const [error, setError] = React.useState<string | null>(null)
-  const [activities, setActivities] = React.useState<Activity[]>([])
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
-
-  // Helper function to add activity
-  const addActivity = React.useCallback(
-    (
-      type: Activity['type'],
-      title: string,
-      description: string,
-      metadata?: Activity['metadata']
-    ) => {
-      const newActivity: Activity = {
-        id: `${Date.now()}-${Math.random()}`,
-        type,
-        title,
-        description,
-        timestamp: new Date(),
-        metadata,
-      }
-      setActivities((prev) => [newActivity, ...prev])
-    },
-    []
-  )
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -95,17 +70,6 @@ export function Dashboard() {
         }, {})
       )
       setError(null)
-
-      // Add activity
-      addActivity(
-        'import',
-        'CSV Imported',
-        `Successfully imported ${file.name}`,
-        {
-          fileName: file.name,
-          rowCount: rows.length,
-        }
-      )
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : 'CSV upload failed'
@@ -130,15 +94,6 @@ export function Dashboard() {
       if (currently && !next[key]) {
         setPrimaryHeaders((prevP) => prevP.filter((p) => p !== key))
       }
-
-      // Add activity
-      addActivity(
-        currently ? 'hide_header' : 'show_header',
-        currently ? 'Header Hidden' : 'Header Shown',
-        `${currently ? 'Hidden' : 'Shown'} column "${key}"`,
-        { headerName: key }
-      )
-
       return next
     })
   }
@@ -156,18 +111,9 @@ export function Dashboard() {
       }, {})
     )
     setError(null)
-
-    // Add activity
-    addActivity(
-      'settings',
-      'Show All Headers',
-      `Displayed all ${headers.length} columns`
-    )
   }
 
   function clearCsv() {
-    const rowCount = data.length
-
     setData([])
     setHeaders([])
     setVisible({})
@@ -176,14 +122,6 @@ export function Dashboard() {
     setDraggedPrimaryHeader(null)
     setDragOverlayPosition(null)
     setDragOverPrimaryHeader(null)
-
-    // Add activity
-    addActivity(
-      'clear',
-      'Data Cleared',
-      `Removed ${rowCount} rows from dashboard`,
-      { rowCount }
-    )
   }
 
   function reorderPrimaryHeaders(activeHeader: string, overHeader: string) {
@@ -688,19 +626,19 @@ export function Dashboard() {
               </Card>
               <Card className='col-span-1 lg:col-span-3'>
                 <CardHeader>
-                  <CardTitle>Recent Activity</CardTitle>
+                  <CardTitle>Anomaly Detection</CardTitle>
                   <CardDescription>
-                    Your latest actions and changes
+                    AI-powered detection of unusual patterns
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <RecentActivity activities={activities} maxItems={5} />
+                  <AnomalyDetection data={data} headers={headers} />
                 </CardContent>
               </Card>
             </div>
           </TabsContent>
           <TabsContent value='analytics' className='space-y-4'>
-            <Analytics />
+            <Analytics data={data} headers={headers} />
           </TabsContent>
         </Tabs>
       </Main>

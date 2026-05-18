@@ -6,10 +6,20 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { AnalyticsChart } from './analytics-chart'
+import { AIInsights } from './ai-insights'
 
-export function Analytics() {
+interface AnalyticsProps {
+  data?: Record<string, unknown>[]
+  headers?: string[]
+}
+
+export function Analytics({ data = [], headers = [] }: AnalyticsProps) {
   return (
     <div className='space-y-4'>
+      {/* AI Insights Section */}
+      <AIInsights data={data} headers={headers} />
+
+      {/* Original Analytics */}
       <Card>
         <CardHeader>
           <CardTitle>Traffic Overview</CardTitle>

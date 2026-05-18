@@ -19,6 +19,13 @@ export const API_ENDPOINTS = {
       `${API_BASE_URL}/api/convert/csv-to-array?use_headers=${useHeaders}`,
   },
   
+  // AI endpoints
+  ai: {
+    analyze: `${API_BASE_URL}/api/ai/analyze`,
+    summary: `${API_BASE_URL}/api/ai/summary`,
+    health: `${API_BASE_URL}/api/ai/health`,
+  },
+  
   // Root endpoints
   root: `${API_BASE_URL}/`,
   hello: `${API_BASE_URL}/api/hello`,
@@ -33,6 +40,49 @@ export interface CsvToArrayResponse {
 
 export interface ApiError {
   detail: string
+}
+
+/**
+ * AI Insights Types
+ */
+export interface AIInsight {
+  key_insights?: string[]
+  data_quality?: string
+  recommendations?: string[]
+  anomalies?: Array<{
+    column: string
+    description: string
+    severity: 'low' | 'medium' | 'high'
+    affected_rows: string
+  }>
+  trends?: Array<{
+    type: 'increasing' | 'decreasing' | 'stable' | 'seasonal'
+    column: string
+    description: string
+    confidence: 'low' | 'medium' | 'high'
+  }>
+  correlations?: string[]
+  predictions?: string[]
+  raw_response?: string
+  parsed?: boolean
+}
+
+export interface AIAnalyzeResponse {
+  success: boolean
+  insights: AIInsight
+  analysis_type: string
+  error?: string
+}
+
+export interface AISummaryResponse {
+  success: boolean
+  summary: string
+}
+
+export interface AIHealthResponse {
+  configured: boolean
+  service: string
+  status: string
 }
 
 /**
@@ -98,4 +148,78 @@ export async function apiFetch<T>(
  */
 export async function checkApiHealth(): Promise<{ message: string }> {
   return apiFetch(API_ENDPOINTS.hello)
+}
+
+
+/**
+ * AI Insights Functions
+ */
+
+/**
+ * Analyze data with AI
+ * @param data - Array of data rows
+ * @param headers - Column headers
+ * @param analysisType - Type of analysis (general, anomaly, trend)
+ * @returns Promise with AI insights
+ */
+export async function analyzeDataWithAI(
+  data: Record<string, unknown>[],
+  headers: string[],
+  analysisType: 'general' | 'anomaly' | 'trend' = 'general'
+): Promise<AIAnalyzeResponse> {
+  const response = await fetch(API_ENDPOINTS.ai.analyze, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      data,
+      headers,
+      analysis_type: analysisType,
+    }),
+  })
+
+  if (!response.ok) {
+    const error: ApiError = await response.json()
+    throw new Error(error.detail || 'Failed to analyze data')
+  }
+
+  return response.json()
+}
+
+/**
+ * Generate data summary with AI
+ * @param data - Array of data rows
+ * @param headers - Column headers
+ * @returns Promise with summary text
+ */
+export async function generateAISummary(
+  data: Record<string, unknown>[],
+  headers: string[]
+): Promise<AISummaryResponse> {
+  const response = await fetch(API_ENDPOINTS.ai.summary, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      data,
+      headers,
+    }),
+  })
+
+  if (!response.ok) {
+    const error: ApiError = await response.json()
+    throw new Error(error.detail || 'Failed to generate summary')
+  }
+
+  return response.json()
+}
+
+/**
+ * Check AI service health
+ * @returns Promise with health status
+ */
+export async function checkAIHealth(): Promise<AIHealthResponse> {
+  return apiFetch(API_ENDPOINTS.ai.health)
 }
