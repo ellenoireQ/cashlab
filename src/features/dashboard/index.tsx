@@ -29,7 +29,10 @@ import { ThemeSwitch } from '@/components/theme-switch'
 import { uploadCsvFile } from '@/lib/api'
 import { Analytics } from './components/analytics'
 import { Overview } from './components/overview'
-import { RecentSales } from './components/recent-sales'
+import {
+  RecentActivity,
+  type Activity,
+} from './components/recent-activity'
 
 export function Dashboard() {
   const [data, setData] = React.useState<Record<string, unknown>[]>([])
@@ -50,7 +53,29 @@ export function Dashboard() {
     string | null
   >(null)
   const [error, setError] = React.useState<string | null>(null)
+  const [activities, setActivities] = React.useState<Activity[]>([])
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
+
+  // Helper function to add activity
+  const addActivity = React.useCallback(
+    (
+      type: Activity['type'],
+      title: string,
+      description: string,
+      metadata?: Activity['metadata']
+    ) => {
+      const newActivity: Activity = {
+        id: `${Date.now()}-${Math.random()}`,
+        type,
+        title,
+        description,
+        timestamp: new Date(),
+        metadata,
+      }
+      setActivities((prev) => [newActivity, ...prev])
+    },
+    []
+  )
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -70,8 +95,20 @@ export function Dashboard() {
         }, {})
       )
       setError(null)
+
+      // Add activity
+      addActivity(
+        'import',
+        'CSV Imported',
+        `Successfully imported ${file.name}`,
+        {
+          fileName: file.name,
+          rowCount: rows.length,
+        }
+      )
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'CSV upload failed'
+      const errorMessage =
+        err instanceof Error ? err.message : 'CSV upload failed'
       setError(errorMessage)
     } finally {
       e.target.value = ''
@@ -93,6 +130,15 @@ export function Dashboard() {
       if (currently && !next[key]) {
         setPrimaryHeaders((prevP) => prevP.filter((p) => p !== key))
       }
+
+      // Add activity
+      addActivity(
+        currently ? 'hide_header' : 'show_header',
+        currently ? 'Header Hidden' : 'Header Shown',
+        `${currently ? 'Hidden' : 'Shown'} column "${key}"`,
+        { headerName: key }
+      )
+
       return next
     })
   }
@@ -110,9 +156,18 @@ export function Dashboard() {
       }, {})
     )
     setError(null)
+
+    // Add activity
+    addActivity(
+      'settings',
+      'Show All Headers',
+      `Displayed all ${headers.length} columns`
+    )
   }
 
   function clearCsv() {
+    const rowCount = data.length
+
     setData([])
     setHeaders([])
     setVisible({})
@@ -121,6 +176,14 @@ export function Dashboard() {
     setDraggedPrimaryHeader(null)
     setDragOverlayPosition(null)
     setDragOverPrimaryHeader(null)
+
+    // Add activity
+    addActivity(
+      'clear',
+      'Data Cleared',
+      `Removed ${rowCount} rows from dashboard`,
+      { rowCount }
+    )
   }
 
   function reorderPrimaryHeaders(activeHeader: string, overHeader: string) {
@@ -625,13 +688,13 @@ export function Dashboard() {
               </Card>
               <Card className='col-span-1 lg:col-span-3'>
                 <CardHeader>
-                  <CardTitle>Recent Sales</CardTitle>
+                  <CardTitle>Recent Activity</CardTitle>
                   <CardDescription>
-                    You made 265 sales this month.
+                    Your latest actions and changes
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <RecentSales />
+                  <RecentActivity activities={activities} maxItems={5} />
                 </CardContent>
               </Card>
             </div>
