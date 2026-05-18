@@ -26,6 +26,7 @@ import { TopNav } from '@/components/layout/top-nav'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
+import { uploadCsvFile } from '@/lib/api'
 import { Analytics } from './components/analytics'
 import { Overview } from './components/overview'
 import { RecentSales } from './components/recent-sales'
@@ -55,19 +56,9 @@ export function Dashboard() {
     const file = e.target.files?.[0]
     if (!file) return
 
-    const fd = new FormData()
-    fd.append('file', file)
-
     try {
-      const res = await fetch(
-        'http://localhost:8000/api/convert/csv-to-array?use_headers=true',
-        {
-          method: 'POST',
-          body: fd,
-        }
-      )
-      const json = await res.json()
-      const rows = (json?.data ?? []) as Record<string, unknown>[]
+      const response = await uploadCsvFile(file, true)
+      const rows = response.data
       const nextHeaders = rows.length ? Object.keys(rows[0]) : []
 
       setData(rows)
@@ -78,8 +69,10 @@ export function Dashboard() {
           return acc
         }, {})
       )
-    } catch (_err) {
-      setError('CSV upload failed')
+      setError(null)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'CSV upload failed'
+      setError(errorMessage)
     } finally {
       e.target.value = ''
     }
