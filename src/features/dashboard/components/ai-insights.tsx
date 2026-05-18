@@ -10,6 +10,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
+import { MarkdownContent } from '@/components/markdown-content'
 import {
   analyzeDataWithAI,
   generateAISummary,
@@ -145,11 +146,9 @@ export function AIInsights({ data, headers }: AIInsightsProps) {
                 <Skeleton className='h-4 w-full' />
                 <Skeleton className='h-4 w-3/4' />
               </div>
-            ) : (
-              <p className='text-sm text-muted-foreground leading-relaxed'>
-                {summary}
-              </p>
-            )}
+            ) : summary ? (
+              <MarkdownContent content={summary} />
+            ) : null}
           </CardContent>
         </Card>
       )}
@@ -177,7 +176,9 @@ export function AIInsights({ data, headers }: AIInsightsProps) {
                       className='flex items-start gap-2 text-sm leading-relaxed'
                     >
                       <span className='mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary' />
-                      <span className='text-muted-foreground'>{insight}</span>
+                      <div className='flex-1'>
+                        <MarkdownContent content={insight} />
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -207,7 +208,9 @@ export function AIInsights({ data, headers }: AIInsightsProps) {
                       className='flex items-start gap-2 text-sm leading-relaxed'
                     >
                       <span className='mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-yellow-600' />
-                      <span className='text-muted-foreground'>{rec}</span>
+                      <div className='flex-1'>
+                        <MarkdownContent content={rec} />
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -257,9 +260,7 @@ export function AIInsights({ data, headers }: AIInsightsProps) {
                             </Badge>
                           </div>
                         </div>
-                        <p className='text-sm text-muted-foreground'>
-                          {trend.description}
-                        </p>
+                        <MarkdownContent content={trend.description} />
                       </div>
                     ))}
                   </div>
@@ -276,7 +277,9 @@ export function AIInsights({ data, headers }: AIInsightsProps) {
                           className='flex items-start gap-2 text-sm'
                         >
                           <span className='mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary' />
-                          <span className='text-muted-foreground'>{corr}</span>
+                          <div className='flex-1'>
+                            <MarkdownContent content={corr} />
+                          </div>
                         </li>
                       ))}
                     </ul>
@@ -294,7 +297,9 @@ export function AIInsights({ data, headers }: AIInsightsProps) {
                           className='flex items-start gap-2 text-sm'
                         >
                           <span className='mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-600' />
-                          <span className='text-muted-foreground'>{pred}</span>
+                          <div className='flex-1'>
+                            <MarkdownContent content={pred} />
+                          </div>
                         </li>
                       ))}
                     </ul>
@@ -324,9 +329,7 @@ export function AIInsights({ data, headers }: AIInsightsProps) {
             <CardTitle>Data Quality</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className='text-sm text-muted-foreground leading-relaxed'>
-              {generalInsights.data_quality}
-            </p>
+            <MarkdownContent content={generalInsights.data_quality} />
           </CardContent>
         </Card>
       )}
