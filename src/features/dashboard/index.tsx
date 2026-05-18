@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Eye, EyeOff, GripVertical } from 'lucide-react'
+import { Eye, EyeOff, GripVertical, Settings2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -372,13 +372,13 @@ export function Dashboard() {
               <div className='ms-3 flex items-center'>
                 <DropdownMenu modal={false}>
                   <DropdownMenuTrigger asChild>
-                    <Button variant='outline' size='sm'>
-                      Columns
+                    <Button variant='outline' size='icon'>
+                      <Settings2 className='h-4 w-4' />
+                      <span className='sr-only'>View options</span>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align='end' className='w-72'>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuLabel>Headers</DropdownMenuLabel>
+                    <DropdownMenuLabel>View Options</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onSelect={() =>
