@@ -6,11 +6,11 @@ This file describes how automated agents, contributors, and pair-programming ass
 
 Agent behaviour (must follow)
 ----------------------------
-- Before do anything always "You" known history the codebase
+- REQUIRED Before do anything always "You" known history the codebase
 	1. How to do:
 		- git log --oneline --graph --all
 		- git show <hash>
-- Always learning important codebase before writing the code, example:
+- MUST Always learning important codebase before writing the code, example:
 	- backend/
 	- src/components/layout
 	- src/components/ui
