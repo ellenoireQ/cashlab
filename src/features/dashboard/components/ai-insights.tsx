@@ -1,4 +1,7 @@
-import * as React from 'react'
+import { RefreshCw } from 'lucide-react'
+import { useAnalysisCache } from '@/hooks/use-analysis-cache'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -7,15 +10,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
 import { MarkdownContent } from '@/components/markdown-content'
-import {
-  analyzeDataWithAI,
-  generateAISummary,
-  type AIInsight,
-} from '@/lib/api'
 
 interface AIInsightsProps {
   data: Record<string, unknown>[]
@@ -23,86 +19,19 @@ interface AIInsightsProps {
 }
 
 export function AIInsights({ data, headers }: AIInsightsProps) {
-  const [loadingSummary, setLoadingSummary] = React.useState(false)
-  const [loadingOverview, setLoadingOverview] = React.useState(false)
-  const [loadingTrends, setLoadingTrends] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
-  const [summary, setSummary] = React.useState<string | null>(null)
-  const [generalInsights, setGeneralInsights] = React.useState<AIInsight | null>(
-    null
-  )
-  const [trends, setTrends] = React.useState<AIInsight | null>(null)
+  const {
+    cache,
+    loading,
+    error,
+    regenerateSummary,
+    regenerateOverview,
+    regenerateTrends,
+  } = useAnalysisCache(data, headers)
 
   const hasData = data.length > 0 && headers.length > 0
-
-  async function handleAnalyzeOverview() {
-    if (!hasData) return
-
-    setLoadingOverview(true)
-    setError(null)
-
-    try {
-      const result = await analyzeDataWithAI(data, headers, 'general')
-
-      if (result.success) {
-        setGeneralInsights(result.insights)
-      } else {
-        setError(result.error || 'Analysis failed')
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to analyze data')
-    } finally {
-      setLoadingOverview(false)
-    }
-  }
-
-  async function handleAnalyzeTrends() {
-    if (!hasData) return
-
-    setLoadingTrends(true)
-    setError(null)
-
-    try {
-      const result = await analyzeDataWithAI(data, headers, 'trend')
-
-      if (result.success) {
-        setTrends(result.insights)
-      } else {
-        setError(result.error || 'Analysis failed')
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to analyze data')
-    } finally {
-      setLoadingTrends(false)
-    }
-  }
-
-  async function handleGenerateSummary() {
-    if (!hasData) return
-
-    setLoadingSummary(true)
-    setError(null)
-
-    try {
-      const result = await generateAISummary(data, headers)
-      if (result.success) {
-        setSummary(result.summary)
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate summary')
-    } finally {
-      setLoadingSummary(false)
-    }
-  }
-
-  React.useEffect(() => {
-    // Auto-generate all analyses when data changes
-    if (hasData && !summary && !generalInsights && !trends) {
-      handleGenerateSummary()
-      handleAnalyzeOverview()
-      handleAnalyzeTrends()
-    }
-  }, [data, headers])
+  const { summary } = cache
+  const { generalInsights } = cache
+  const { trends } = cache
 
   if (!hasData) {
     return (
@@ -134,13 +63,27 @@ export function AIInsights({ data, headers }: AIInsightsProps) {
       )}
 
       {/* Summary */}
-      {(loadingSummary || summary) && (
+      {(loading.summary || summary) && (
         <Card>
-          <CardHeader>
-            <CardTitle>Summary</CardTitle>
+          <CardHeader className='flex flex-row items-center justify-between space-y-0'>
+            <div>
+              <CardTitle>Summary</CardTitle>
+            </div>
+            <Button
+              variant='ghost'
+              size='sm'
+              onClick={regenerateSummary}
+              disabled={loading.summary}
+              className='h-8 w-8 p-0'
+              title='Regenerate summary'
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${loading.summary ? 'animate-spin' : ''}`}
+              />
+            </Button>
           </CardHeader>
           <CardContent>
-            {loadingSummary && !summary ? (
+            {loading.summary && !summary ? (
               <div className='space-y-2'>
                 <Skeleton className='h-4 w-full' />
                 <Skeleton className='h-4 w-full' />
@@ -156,13 +99,25 @@ export function AIInsights({ data, headers }: AIInsightsProps) {
       {/* Key Insights & Recommendations */}
       <div className='grid gap-4 sm:grid-cols-2'>
         {/* Key Insights */}
-        {(loadingOverview || generalInsights?.key_insights) && (
+        {(loading.overview || generalInsights?.key_insights) && (
           <Card>
-            <CardHeader>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0'>
               <CardTitle>Key Insights</CardTitle>
+              <Button
+                variant='ghost'
+                size='sm'
+                onClick={regenerateOverview}
+                disabled={loading.overview}
+                className='h-8 w-8 p-0'
+                title='Regenerate insights'
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${loading.overview ? 'animate-spin' : ''}`}
+                />
+              </Button>
             </CardHeader>
             <CardContent>
-              {loadingOverview && !generalInsights ? (
+              {loading.overview && !generalInsights ? (
                 <div className='space-y-3'>
                   <Skeleton className='h-4 w-full' />
                   <Skeleton className='h-4 w-full' />
@@ -188,13 +143,25 @@ export function AIInsights({ data, headers }: AIInsightsProps) {
         )}
 
         {/* Recommendations */}
-        {(loadingOverview || generalInsights?.recommendations) && (
+        {(loading.overview || generalInsights?.recommendations) && (
           <Card>
-            <CardHeader>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0'>
               <CardTitle>Recommendations</CardTitle>
+              <Button
+                variant='ghost'
+                size='sm'
+                onClick={regenerateOverview}
+                disabled={loading.overview}
+                className='h-8 w-8 p-0'
+                title='Regenerate recommendations'
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${loading.overview ? 'animate-spin' : ''}`}
+                />
+              </Button>
             </CardHeader>
             <CardContent>
-              {loadingOverview && !generalInsights ? (
+              {loading.overview && !generalInsights ? (
                 <div className='space-y-3'>
                   <Skeleton className='h-4 w-full' />
                   <Skeleton className='h-4 w-full' />
@@ -221,13 +188,25 @@ export function AIInsights({ data, headers }: AIInsightsProps) {
       </div>
 
       {/* Trends */}
-      {(loadingTrends || trends) && (
+      {(loading.trends || trends) && (
         <Card>
-          <CardHeader>
+          <CardHeader className='flex flex-row items-center justify-between space-y-0'>
             <CardTitle>Trends</CardTitle>
+            <Button
+              variant='ghost'
+              size='sm'
+              onClick={regenerateTrends}
+              disabled={loading.trends}
+              className='h-8 w-8 p-0'
+              title='Regenerate trends'
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${loading.trends ? 'animate-spin' : ''}`}
+              />
+            </Button>
           </CardHeader>
           <CardContent>
-            {loadingTrends && !trends ? (
+            {loading.trends && !trends ? (
               <div className='space-y-3'>
                 <Skeleton className='h-20 w-full' />
                 <Skeleton className='h-20 w-full' />
@@ -243,7 +222,9 @@ export function AIInsights({ data, headers }: AIInsightsProps) {
                         className='rounded-lg border bg-muted/30 p-3'
                       >
                         <div className='mb-2 flex items-start justify-between gap-2'>
-                          <h5 className='text-sm font-medium'>{trend.column}</h5>
+                          <h5 className='text-sm font-medium'>
+                            {trend.column}
+                          </h5>
                           <div className='flex gap-1.5'>
                             <Badge variant='outline' className='text-xs'>
                               {trend.type}
@@ -272,10 +253,7 @@ export function AIInsights({ data, headers }: AIInsightsProps) {
                     <h5 className='mb-2 text-sm font-medium'>Correlations</h5>
                     <ul className='space-y-2'>
                       {trends.correlations.map((corr, i) => (
-                        <li
-                          key={i}
-                          className='flex items-start gap-2 text-sm'
-                        >
+                        <li key={i} className='flex items-start gap-2 text-sm'>
                           <span className='mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary' />
                           <div className='flex-1'>
                             <MarkdownContent content={corr} />
@@ -292,10 +270,7 @@ export function AIInsights({ data, headers }: AIInsightsProps) {
                     <h5 className='mb-2 text-sm font-medium'>Predictions</h5>
                     <ul className='space-y-2'>
                       {trends.predictions.map((pred, i) => (
-                        <li
-                          key={i}
-                          className='flex items-start gap-2 text-sm'
-                        >
+                        <li key={i} className='flex items-start gap-2 text-sm'>
                           <span className='mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-600' />
                           <div className='flex-1'>
                             <MarkdownContent content={pred} />
@@ -305,17 +280,6 @@ export function AIInsights({ data, headers }: AIInsightsProps) {
                     </ul>
                   </div>
                 )}
-
-                <div className='flex justify-end pt-2'>
-                  <Button
-                    variant='outline'
-                    size='sm'
-                    onClick={handleAnalyzeTrends}
-                    disabled={loadingTrends}
-                  >
-                    Refresh
-                  </Button>
-                </div>
               </div>
             ) : null}
           </CardContent>
