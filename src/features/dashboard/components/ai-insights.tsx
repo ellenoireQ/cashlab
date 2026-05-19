@@ -26,12 +26,16 @@ export function AIInsights({ data, headers }: AIInsightsProps) {
     regenerateSummary,
     regenerateOverview,
     regenerateTrends,
+    regenerateAll,
   } = useAnalysisCache(data, headers)
 
   const hasData = data.length > 0 && headers.length > 0
   const { summary } = cache
   const { generalInsights } = cache
   const { trends } = cache
+
+  const hasAnyResults = summary || generalInsights || trends
+  const isAnyLoading = loading.summary || loading.overview || loading.trends
 
   if (!hasData) {
     return (
@@ -43,10 +47,40 @@ export function AIInsights({ data, headers }: AIInsightsProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className='flex min-h-[200px] items-center justify-center rounded-lg border border-dashed'>
+          <div className='flex min-h-50 items-center justify-center rounded-lg border border-dashed'>
             <p className='text-sm text-muted-foreground'>
               Import CSV data to generate insights
             </p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // No analysis yet - show initial state with generate button
+  if (!hasAnyResults) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Insights</CardTitle>
+          <CardDescription>
+            Intelligent analysis of your financial data
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className='flex min-h-50 items-center justify-center rounded-lg border-2 border-dashed'>
+            <div className='text-center'>
+              <p className='mb-4 text-sm text-muted-foreground'>
+                Ready to generate insights?
+              </p>
+              <Button
+                onClick={regenerateAll}
+                disabled={isAnyLoading}
+                size='lg'
+              >
+                {isAnyLoading ? 'Analyzing...' : 'Generate Analysis'}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

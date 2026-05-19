@@ -194,19 +194,8 @@ export function useAnalysisCache(
     setError(null)
   }, [])
 
-  // Auto-generate all analyses when data is first available
-  useEffect(() => {
-    const hasData = data.length > 0 && headers.length > 0
-    const isEmpty =
-      !cache.summary &&
-      !cache.generalInsights &&
-      !cache.trends &&
-      !cache.anomalies
-
-    if (hasData && isEmpty) {
-      regenerateAll()
-    }
-  }, [data, headers])
+  // NOTE: Auto-generation disabled - analysis is now manual only
+  // Users must explicitly click "Scan" or "Analyze" button to trigger analysis
 
   return {
     cache,

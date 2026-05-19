@@ -138,6 +138,28 @@ export function AnomalyDetection({ data, headers }: AnomalyDetectionProps) {
     )
   }
 
+  // No results yet - initial state, user needs to trigger scan
+  if (!anomalies) {
+    return (
+      <div className='space-y-3'>
+        <div className='flex min-h-40 items-center justify-center rounded-lg border-2 border-dashed'>
+          <div className='text-center'>
+            <p className='mb-4 text-sm text-muted-foreground'>
+              Ready to scan for anomalies?
+            </p>
+            <Button
+              onClick={handleDetectAnomalies}
+              disabled={loading.anomaly}
+              size='lg'
+            >
+              {loading.anomaly ? 'Scanning...' : 'Scan for Anomalies'}
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (!hasAnomalies) {
     return (
       <div className='space-y-3'>
