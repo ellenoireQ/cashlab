@@ -4,3 +4,4 @@ pandas
 python-multipart
 google-generativeai
 python-dotenv
+supabase==2.5.1

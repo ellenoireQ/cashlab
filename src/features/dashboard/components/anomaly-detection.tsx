@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { saveAnalysisToDatabase } from '@/lib/api'
 import { useAnalysisCache } from '@/hooks/use-analysis-cache'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -37,7 +38,7 @@ export function AnomalyDetection({ data, headers }: AnomalyDetectionProps) {
     setCurrentIndex((prev) => (prev < totalAnomalies - 1 ? prev + 1 : 0))
   }
 
-  function handleSaveAnomalies() {
+  async function handleSaveAnomalies() {
     if (!anomalies) return
 
     const saveData = {
@@ -46,9 +47,31 @@ export function AnomalyDetection({ data, headers }: AnomalyDetectionProps) {
       anomalies: anomalyList,
     }
 
+    // Dummy team data (for now)
+    const dummyTeamId = `team-${Math.random().toString(36).substring(7)}`
+    const dummyTeamName = 'Team Dummy'
+
     // Save to localStorage
     localStorage.setItem('detected-anomalies', JSON.stringify(saveData))
-    setIsSaved(true)
+
+    // Save to database
+    try {
+      const response = await saveAnalysisToDatabase(
+        'anomaly',
+        dummyTeamId,
+        dummyTeamName,
+        saveData,
+        { source: 'anomaly-detection', dataRows: data.length }
+      )
+
+      if (response.success) {
+        console.log('✓ Analysis saved to database:', response.record?.id)
+      } else {
+        console.error('Failed to save to database:', response.error)
+      }
+    } catch (err) {
+      console.error('Error saving analysis:', err)
+    }
 
     // Download as JSON file
     const element = document.createElement('a')
@@ -64,6 +87,7 @@ export function AnomalyDetection({ data, headers }: AnomalyDetectionProps) {
     element.click()
     document.body.removeChild(element)
 
+    setIsSaved(true)
     // Reset saved status after 2 seconds
     setTimeout(() => setIsSaved(false), 2000)
   }

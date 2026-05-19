@@ -1,12 +1,13 @@
 /**
  * API Configuration and Client
- * 
+ *
  * This file contains all API endpoint definitions and helper functions
  * for making requests to the backend API.
  */
 
 // API Base URL - can be configured via environment variable
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
 /**
  * API Endpoints Registry
@@ -15,17 +16,28 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 export const API_ENDPOINTS = {
   // Convert endpoints
   convert: {
-    csvToArray: (useHeaders: boolean = true) => 
+    csvToArray: (useHeaders: boolean = true) =>
       `${API_BASE_URL}/api/convert/csv-to-array?use_headers=${useHeaders}`,
   },
-  
+
   // AI endpoints
   ai: {
     analyze: `${API_BASE_URL}/api/ai/analyze`,
     summary: `${API_BASE_URL}/api/ai/summary`,
     health: `${API_BASE_URL}/api/ai/health`,
   },
-  
+
+  // Dashboard endpoints
+  dashboard: {
+    saveAnalysis: `${API_BASE_URL}/api/dashboard/save-analysis`,
+    getAnalysis: (teamId: string, type?: string) => {
+      const query = type ? `?analysis_type=${type}` : ''
+      return `${API_BASE_URL}/api/dashboard/analysis/${teamId}${query}`
+    },
+    deleteAnalysis: (analysisId: string) =>
+      `${API_BASE_URL}/api/dashboard/analysis/${analysisId}`,
+  },
+
   // Root endpoints
   root: `${API_BASE_URL}/`,
   hello: `${API_BASE_URL}/api/hello`,
@@ -150,7 +162,6 @@ export async function checkApiHealth(): Promise<{ message: string }> {
   return apiFetch(API_ENDPOINTS.hello)
 }
 
-
 /**
  * AI Insights Functions
  */
@@ -222,4 +233,141 @@ export async function generateAISummary(
  */
 export async function checkAIHealth(): Promise<AIHealthResponse> {
   return apiFetch(API_ENDPOINTS.ai.health)
+}
+
+/**
+ * Dashboard Analysis Types
+ */
+export interface AnalysisRecord {
+  id: string
+  team_id: string
+  team_name: string
+  analysis_type: string
+  data: Record<string, unknown>
+  metadata?: Record<string, unknown>
+  created_at: string
+  updated_at: string
+}
+
+export interface SaveAnalysisRequest {
+  analysis_type: string
+  team_id: string
+  team_name: string
+  data: Record<string, unknown>
+  metadata?: Record<string, unknown>
+}
+
+export interface SaveAnalysisResponse {
+  success: boolean
+  message: string
+  record?: AnalysisRecord
+  error?: string
+}
+
+export interface GetAnalysisResponse {
+  success: boolean
+  records: AnalysisRecord[]
+  count: number
+}
+
+/**
+ * Dashboard Functions
+ */
+
+/**
+ * Save analysis results to database
+ * @param analysisType - Type of analysis (anomaly, overview, trend, etc.)
+ * @param teamId - Team identifier
+ * @param teamName - Team name
+ * @param data - Analysis data to save
+ * @param metadata - Optional metadata
+ * @returns Promise with save response
+ */
+export async function saveAnalysisToDatabase(
+  analysisType: string,
+  teamId: string,
+  teamName: string,
+  data: Record<string, unknown>,
+  metadata?: Record<string, unknown>
+): Promise<SaveAnalysisResponse> {
+  try {
+    const response = await fetch(API_ENDPOINTS.dashboard.saveAnalysis, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        analysis_type: analysisType,
+        team_id: teamId,
+        team_name: teamName,
+        data,
+        metadata,
+      }),
+    })
+
+    if (!response.ok) {
+      const error: ApiError = await response.json()
+      throw new Error(error.detail || 'Failed to save analysis')
+    }
+
+    return response.json()
+  } catch (err) {
+    return {
+      success: false,
+      message: 'Failed to save analysis',
+      error: err instanceof Error ? err.message : 'Unknown error',
+    }
+  }
+}
+
+/**
+ * Retrieve analysis records for a team
+ * @param teamId - Team identifier
+ * @param analysisType - Optional: filter by analysis type
+ * @returns Promise with analysis records
+ */
+export async function getTeamAnalysis(
+  teamId: string,
+  analysisType?: string
+): Promise<GetAnalysisResponse> {
+  try {
+    const url = API_ENDPOINTS.dashboard.getAnalysis(teamId, analysisType)
+    return await apiFetch(url)
+  } catch (err) {
+    return {
+      success: false,
+      records: [],
+      count: 0,
+    }
+  }
+}
+
+/**
+ * Delete an analysis record
+ * @param analysisId - Analysis ID to delete
+ * @returns Promise with deletion response
+ */
+export async function deleteAnalysisRecord(
+  analysisId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const response = await fetch(
+      API_ENDPOINTS.dashboard.deleteAnalysis(analysisId),
+      {
+        method: 'DELETE',
+      }
+    )
+
+    if (!response.ok) {
+      const error: ApiError = await response.json()
+      throw new Error(error.detail || 'Failed to delete analysis')
+    }
+
+    return response.json()
+  } catch (err) {
+    return {
+      success: false,
+      message: err instanceof Error ? err.message : 'Failed to delete analysis',
+    }
+  }
 }

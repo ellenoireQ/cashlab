@@ -5,8 +5,13 @@ import os
 # Load environment variables from .env if present (safe: we will not open the file)
 load_dotenv()
 from fastapi.middleware.cors import CORSMiddleware
+from database import init_supabase
 from routers.convert_any import router as convert_router
 from routers.ai_insights import router as ai_router
+from routers.dashboard import router as dashboard_router
+
+# Initialize Supabase
+init_supabase()
 
 app = FastAPI()
 
@@ -26,6 +31,7 @@ app.add_middleware(
 # Register routers
 app.include_router(convert_router, prefix="/api/convert", tags=["convert"])
 app.include_router(ai_router, prefix="/api/ai", tags=["ai"])
+app.include_router(dashboard_router, prefix="/api/dashboard", tags=["dashboard"])
 
 
 @app.get("/")
